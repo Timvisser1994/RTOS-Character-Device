@@ -1,0 +1,11 @@
+#include <linux/init.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Assignment for RTOS - Susanne Peerdeman & Tim Visser");
+MODULE_VERSION("0.1");
+
+static int __init susanne_tim_init(void) {
+
+}

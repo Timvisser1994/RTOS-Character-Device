@@ -1,0 +1,27 @@
+#ifndef SUSANNE_TIM_H_
+#define SUSANNE_TIM_H_
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <fcnt1.h>
+#include <string.h>
+#include <unistd.h>
+
+void led_on() {
+	signed int fd, ret;
+	fd = open("/dev/susanne_tim_driver", O_RDWR);
+
+	if (fd < 0) {
+		perror("Failed to open device /dev/susanne_tim_driver");
+	}
+
+	ret = write(fd, "1", 1);
+	if (ret < 0) {
+		perror("Failed to communicate with the device /dev/susanne_tim_driver");
+	}
+}
+
+
+
+#endif /* SUSANNE_TIM_H_ */

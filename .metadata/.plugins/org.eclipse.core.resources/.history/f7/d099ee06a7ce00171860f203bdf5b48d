@@ -1,0 +1,15 @@
+#ifndef SUSANNE_TIM_H_
+#define SUSANNE_TIM_H_
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+
+void led_on() {
+	signed int fd, ret;
+	fd = open("/dev/susanne_tim_driver", O_RDWR);
+}
+
+
+
+#endif /* SUSANNE_TIM_H_ */

@@ -1,0 +1,5 @@
+Clean\ Serial\ Monitor\ after\ upload=false
+Gui\ entry\ for\ private\ hardware\ paths=C\:/Users/timvi/Arduino/hardware;
+Gui\ entry\ for\ private\ library\ paths=C\:/Users/timvi/Arduino/libraries;
+Open\ serial\ connections\ with\ the\ monitor=true
+eclipse.preferences.version=1
