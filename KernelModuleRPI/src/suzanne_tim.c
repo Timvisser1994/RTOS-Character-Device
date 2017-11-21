@@ -55,8 +55,7 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 	*offset += len;
 	if (buffer_data[0] == '1') {
 	  led_status = 1;
-	}
-	if (buffer_data[0] == '0') {
+	} else if (buffer_data[0] == '0') {
 	  led_status = 0;
 	}
 	pr_info("Received data...");
