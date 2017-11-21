@@ -60,6 +60,7 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 	  led_status = 0;
 	}
 	pr_info("Received data...");
+	pr_info("Data received: %s\n", buffer_data);
 	return procfs_buffer_size;
 }
 
