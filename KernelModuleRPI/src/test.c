@@ -1,4 +1,4 @@
-#include <suzanne_tim.c>
+#include "suzanne_tim.c"
 #include <unistd.h>
 
 int main (int argc, char **argv) {
