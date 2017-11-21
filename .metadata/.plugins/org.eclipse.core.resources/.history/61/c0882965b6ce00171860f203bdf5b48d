@@ -1,0 +1,7 @@
+#include <linux/module.h>
+#include <linux/kernel.h>
+
+int hello_init(void) {
+	pr_alert("Hello World ;)\n");
+
+}

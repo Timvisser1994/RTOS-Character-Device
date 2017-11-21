@@ -7,8 +7,4 @@
 # make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
 # rm test
 
-
-# To run execute the following:
-#  make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
-#  insmod hello.ko
 obj-m := hello.o
