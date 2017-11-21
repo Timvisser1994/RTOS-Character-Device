@@ -10,6 +10,6 @@
 
 # To run execute the following:
 #  make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
-#  insmod hello.ko
+#  insmod suzanne_tim.ko
 # Also see https://raspberrypi.stackexchange.com/questions/39845/how-compile-a-loadable-kernel-module-without-recompiling-kernel
-obj-m := hello.o
+obj-m := suzanne_tim.o
