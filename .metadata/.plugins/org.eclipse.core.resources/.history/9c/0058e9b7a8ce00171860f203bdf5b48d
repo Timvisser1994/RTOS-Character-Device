@@ -1,8 +1,8 @@
-obj-m+=suzanne_tim.o
+obj-m+=susanne_tim.o
  
 all:
  make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
- $(CC) suzanne_tim_test.c -o test
+ $(CC) susanne_tim_test.c -o test
 clean:
  make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
  rm test
