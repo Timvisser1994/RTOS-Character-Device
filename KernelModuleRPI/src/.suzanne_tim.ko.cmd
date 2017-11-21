@@ -1,0 +1,1 @@
+cmd_/home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/suzanne_tim.ko := ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/suzanne_tim.ko /home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/suzanne_tim.o /home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/suzanne_tim.mod.o ;  true

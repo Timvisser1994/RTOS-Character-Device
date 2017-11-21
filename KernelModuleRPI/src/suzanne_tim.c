@@ -1,32 +1,79 @@
+#include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-//#include <wiringPi.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+#include <linux/gpio.h>
+#include <asm/gpio.h>
 
-//#define GPIO_LED_PIN 21
 
-int hello_init(void) {
+#define DEVICE_NAME "suzanne_tim_driver"
+#define DEVICE_MAJOR  69
+#define GPIO_LED_PIN 21
+
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Character Device");
+MODULE_AUTHOR("Suzanne Peerdeman & Tim Visser");
+
+static unsigned long procfs_buffer_size = 0;
+static char buffer_data[3];
+static char led_status = 0;
+
+static int device_open(struct inode *inode, struct file *file);
+static int device_release(struct inode *inode, struct file *file);
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset);
+
+static struct file_operations fops = 
+{
+  .owner    = THIS_MODULE,
+  .open     = device_open,
+  .release  = device_release,
+  .write    = device_write,
+};
+
+
+int suzanne_tim_init(void) {
 	pr_alert("Character Device van Suzanne Peerdeman & Tim Visser\n");
-//	if (wiringPiSetup () == -1) {
-//		pr_alert("Wiring Pi is niet geinstalleerd!");
-//		return 1;
-//	}
-//	pinMode(GPIO_LED_PIN, OUTPUT);
+	int ret;
+	ret = register_chrdev(DEVICE_MAJOR, DEVICE_NAME, &fops);
+
 	return 0;
 }
 
-void hello_exit(void) {
+void suzanne_tim_exit(void) {
+	gpio_free(GPIO_LED_PIN);
+	unregister_chrdev(DEVICE_MAJOR, DEVICE_NAME);
 	pr_alert("Character Device ontkoppeld...\n");
 }
 
-static void LED_aan(void) {
-	pr_alert("LEDje aan...\n");
-//	digitalWrite(GPIO_LED_PIN, HIGH);
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset) {
+	procfs_buffer_size = len;
+	if (copy_from_user(buffer_data, buffer, procfs_buffer_size)) {
+	  return -EFAULT;
+	}
+	*offset += len;
+	if (buffer_data[0] == '1') {
+	  led_status = 1;
+	}
+	if (buffer_data[0] == '0') {
+	  led_status = 0;
+	}
+	pr_info("Received data...");
+	return procfs_buffer_size;
 }
 
-static void LED_uit(void) {
-	pr_alert("LEDje uit...\n");
-//	digitalWrite(GPIO_LED_PIN, LOW);
+static int device_open(struct inode *inode, struct file *file) {
+	gpio_set_value(GPIO_LED_PIN, led_status);
+	printk(KERN_ALERT "GPIO %d is set HIGH\n", GPIO_LED_PIN);
+	return 0;
 }
 
-module_init(hello_init);
-module_exit(hello_exit);
+static int device_release(struct inode *inode, struct file *file) {
+	gpio_set_value(GPIO_LED_PIN, led_status);
+	printk(KERN_ALERT "GPIO %d is set LOW\n", GPIO_LED_PIN);
+	return 0;
+}
+
+module_init(suzanne_tim_init);
+module_exit(suzanne_tim_exit);

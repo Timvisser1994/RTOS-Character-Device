@@ -1,0 +1,1 @@
+cmd_/home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/built-in.o :=  rm -f /home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/built-in.o; ar rcsD /home/pi/Documents/RTOS-Character-Device/KernelModuleRPI/src/built-in.o

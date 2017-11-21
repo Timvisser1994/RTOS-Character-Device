@@ -1,4 +1,4 @@
-#include "suzanne_tim.c"
+#include "suzanne_tim.h"
 #include <unistd.h>
 
 int main (int argc, char **argv) {
@@ -6,7 +6,7 @@ int main (int argc, char **argv) {
     while (1) {
         LED_aan();
         usleep(1000000);
-        LED_uit();
+//        LED_uit();
         usleep(1000000);
     }
 
