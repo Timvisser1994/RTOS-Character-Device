@@ -59,8 +59,6 @@ static ssize_t device_write(struct file *file, const char *buffer, size_t len, l
 	  printk(KERN_ALERT "GPIO %d is set HIGH\n", GPIO_LED_PIN);
 	} else if (buffer_data[0] == '0') {
 	  led_status = 0;
-	  gpio_set_value(GPIO_LED_PIN, led_status);
-	  printk(KERN_ALERT "GPIO %d is set LOW\n", GPIO_LED_PIN);
 	}
 	pr_info("Received data...");
 	pr_info("Data received: %s\n", buffer_data);
