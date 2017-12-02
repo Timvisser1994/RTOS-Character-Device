@@ -118,7 +118,7 @@ BCOR5mm, % Binding correction
 
 \section{Introduction}
 
-For this assignment we decided to create a loadable kernel module. A loadable kernel module means that the module in question can be compiled without recompiling the entire kernel, so rather than changing the existing kernel the module will extend the kernel. This will save both time when compiling, and effort when coding. This paper will highlight two kernel modules that we have created: the first will deliver a message at boot and shutdown, and the second will control one of the GPIO (general purpose input/output) pins on the raspberry pi in order to blink a LED. The code will be written in the programming language C.
+For this assignment we decided to create a loadable kernel module. A loadable kernel module means that the module in question can be compiled without recompiling the entire kernel, so rather than changing the existing kernel the module will extend the kernel. This will save both time when compiling, and effort when coding. This paper will decribe the kernel module that we have created: It will deliver a message at boot and shutdown, and it will control one of the GPIO (general purpose input/output) pins on the raspberry pi in order to blink a LED. The code will be written in the programming language C.
  
 %----------------------------------------------------------------------------------------
 %	PREPARATIONS
@@ -377,7 +377,7 @@ This yields a .ko file. This is a 'kernel object', which can be loaded into the 
 \begin{lstlisting}
 
 sudo insmod suzanne_tim.ko
-sudo mknod -m /dev/KernelModuleRPI c 666 0
+sudo mknod /dev/suzanne_tim_driver c 69 0
 
 \end{lstlisting}
 
