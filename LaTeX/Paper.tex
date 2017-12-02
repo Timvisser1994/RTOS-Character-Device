@@ -121,214 +121,266 @@ BCOR5mm, % Binding correction
 For this assignment we decided to create a loadable kernel module. A loadable kernel module means that the module in question can be compiled without recompiling the entire kernel, so rather than changing the existing kernel the module will extend the kernel. This will save both time when compiling, and effort when coding. This paper will highlight two kernel modules that we have created: the first will deliver a message at boot and shutdown, and the second will control one of the GPIO (general purpose input/output) pins on the raspberry pi in order to blink a LED. The code will be written in the programming language C.
  
 %----------------------------------------------------------------------------------------
-%	EXPERIMENTAL SETUP
+%	PREPARATIONS
 %----------------------------------------------------------------------------------------
 
-\section{Experimental Setup}
+\section{Preparations}
 
-CODE UITLEGGEN EN WEGHALEN ALS CODE
-This research uses Java code and R code that is interpreted in the JVM through the \href{http://www.renjin.org/}{Renjin} library. The JVM has been given the arguments \texttt{-Xms2048M} and \texttt{-Xmx2048m} to increase the stack size to the maximum for a 64-bit JVM.
-\\
-\\
-To retrieve outputs from \texttt{java.util.Random} the following code will be used:
-\begin{lstlisting}[label=recursive-random,caption=Retrieve random values through a recursive function and store them in an array]
-...
-private static Random random;
-private static long[] timestamps;
+Before getting started on writing the code for the driver, a few preparations are in order. Because the driver will be cross compiled on a windows machine, the following prerequisites are required:
 
-private static float[] initializeRandomArray (int size) {
-	return addRandom(new float[size], new long[size], 0, size);
+\begin{itemize}
+	\item A virtualbox image with a Linux-OS. For this paper Ubuntu 16.04 was used
+	\item Clion IDE
+	\item RPi toolchain for cross-compilation (https://github.com/
+raspberrypi/tools)
+\end{itemize}
+
+When developing software on a different platform than where the software will eventually be running, one is faced with several options. One could for example write the code on one platform, then transfer it to the target platform for compiling. This approach ensures that the software will run properly in the target environment. The downside, however, is that this method takes needless amounts of work and is often times (depending on the target environment) very slow.
+
+This is why the RPi toolchain is very useful. The toolchain contains everything that is needed to develop software for the RPi externally, so that one can rely on the far superior CPU of a pc, rather than that of the RPi, when compiling. Information on how to set up the toolchain for Clion can be found here:
+ https://stackoverflow.com/questions/19162072/installing-raspberry-pi-cross-compiler
+  
+%----------------------------------------------------------------------------------------
+%	KERNEL MODULE
+%----------------------------------------------------------------------------------------
+
+\section{Kernel Module}
+
+As mentioned earlier, we will avoid having to compile the entire kernel by writing a kernel module instead. The result will be similar to writing a custom kernel, but instead allows us to only code the part that we want, and adding this to the existing kernel.
+
+%----------------------------------------------------------------------------------------
+%	APPROACH
+%----------------------------------------------------------------------------------------
+
+\section{Approach}
+
+First and foremost we must make sure that the OS is up to date.
+
+
+\begin{lstlisting}
+
+#Standard Linux-OS update routine
+apt-get update -y
+apt-get upgrade -y
+
+#Update kernel
+rpi-update
+
+\end{lstlisting}
+
+Once this is done the system will need to reboot. When the system has finished rebooting we can begin writing our driver. The first step to this is to download the RPi source code. The Wget tool will help with this.
+
+\begin{lstlisting}
+
+sudo wget https://raw.githubusercontent.com/notro/rpi-source/master/rpi-
+source -O /usr/bin/rpi-source
+
+\end{lstlisting}
+
+Now to make sure we can execute:
+
+\begin{lstlisting}
+
+sudo chmod +x /usr/bin/rpi-source
+
+\end{lstlisting}
+
+Now to indicate that this is the final version of the script, and it will not be changed:
+
+\begin{lstlisting}
+
+/usr/bin/rpi-source -q --tag-update
+
+\end{lstlisting}
+
+Then the code is ready to run.
+
+\begin{lstlisting}
+
+rpi-source
+
+\end{lstlisting}
+
+And we are ready to start working on our driver.
+
+%----------------------------------------------------------------------------------------
+%	CODING THE DRIVER
+%----------------------------------------------------------------------------------------
+
+\section{Coding the Driver}
+
+Now that the RPi is prepped and ready for our software, it is time to begin coding said software. We will begin by creating a folder, in our case naming it KernelModuleRPI. In this folder we create several files. To compile everything we will need a Makefile.
+
+\begin{lstlisting}
+
+obj -m := suzanne_tim.o
+
+\end{lstlisting}
+
+Next is a header file which helps with calling our driver.
+
+\begin{lstlisting}
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <string.h>
+#include <unistd.h>
+
+void LED_aan(void) {
+  signed int fd, ret;
+  fd = open("/dev/suzanne_tim_driver", O_RDWR);
+  if (fd < 0) {
+    perror("Failed to open character device...");
+  }
+  ret = write(fd, "1", 1);
+  if (ret < 0) {
+    perror("Failed to write 1 to the character device...");
+  }
 }
-	
-/**
-* Recursive function to construct a float[] with length of count filled with java.util.Random output values.
-* @param array Enriched with a new random.nextFloat() each iteration.
-* @param timestamps Saves System.currentTimeMillis() each recursive call.
-* @param count The amount of values the result will eventually have.
-* @return float[] filled with count number of java.util.Random output values.
-*/
-private static float[] addRandom(float[] array, long[] timestamps, int index, int count) {
-	if (index >= count) {
-		// Set static variable 'timestamps'
-		Experiment.timestamps = timestamps;
-		return array;
-	} else {
-		timestamps[index] = System.currentTimeMillis();
-		array[index] = random.nextFloat();
+
+void LED_uit(void) {
+  signed int fd, ret;
+  fd = open("/dev/suzanne_tim_driver", O_RDWR);
+  if (fd < 0) {
+    perror("Failed to open character device...");
+  }
+  ret = write(fd, "0", 1);
+  if (ret < 0) {
+    perror("Failed to write 0 to the character device...");
+  }
+}
+\end{lstlisting}
+
+The driver:
+
+\begin{lstlisting}
+
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+#include <linux/gpio.h>
+#include <asm/gpio.h>
+
+
+#define DEVICE_NAME "suzanne_tim_driver"
+#define DEVICE_MAJOR  69
+#define GPIO_LED_PIN 21
+
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Character Device");
+MODULE_AUTHOR("Suzanne Peerdeman & Tim Visser");
+
+static unsigned long procfs_buffer_size = 0;
+static char buffer_data[3];
+static char led_status = 0;
+
+static int device_open(struct inode *inode, struct file *file);
+static int device_release(struct inode *inode, struct file *file);
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset);
+
+static struct file_operations fops = 
+{
+  .owner    = THIS_MODULE,
+  .open     = device_open,
+  .release  = device_release,
+  .write    = device_write,
+};
+
+
+int suzanne_tim_init(void) {
+	pr_alert("Character Device van Suzanne Peerdeman & Tim Visser\n");
+	int ret;
+	ret = register_chrdev(DEVICE_MAJOR, DEVICE_NAME, &fops);
+
+	return 0;
+}
+
+void suzanne_tim_exit(void) {
+	gpio_free(GPIO_LED_PIN);
+	unregister_chrdev(DEVICE_MAJOR, DEVICE_NAME);
+	pr_alert("Character Device ontkoppeld...\n");
+}
+
+static ssize_t device_write(struct file *file, const char *buffer, size_t len, loff_t *offset) {
+	procfs_buffer_size = len;
+	if (copy_from_user(buffer_data, buffer, procfs_buffer_size)) {
+	  return -EFAULT;
 	}
-	return addRandom(array, timestamps, ++index, count);
+	*offset += len;
+	if (buffer_data[0] == '1') {
+	  led_status = 1;
+	  gpio_set_value(GPIO_LED_PIN, led_status);
+	  printk(KERN_ALERT "GPIO %d is set HIGH\n", GPIO_LED_PIN);
+	} else if (buffer_data[0] == '0') {
+	  led_status = 0;
+	  gpio_set_value(GPIO_LED_PIN, led_status);
+	  printk(KERN_ALERT "GPIO %d is set LOW\n", GPIO_LED_PIN);
+	}
+	pr_info("Received data...");
+	pr_info("Data received: %s\n", buffer_data);
+	return procfs_buffer_size;
 }
-...
-\end{lstlisting}
-In the code above~\ref{recursive-random} the researcher chose to use a primitive array of type float to store outputs into. He chose that because he uses Renjin for this research, and one can easily pass primitives to the Renjin R interpreter.
-\\
-\\
-WE/THE RESEARCHER AND DEFINE 'DAMAGE'
-In the code of listing~\ref{recursive-random} we can also see that outputs are collected through a recursive function. The researcher believes that timestamps can be a contributing factor in the mechanism of \texttt{java.util.Random.nextFloat()}. Therefore, in an effort to minimize the damage different timestamps could have on ouputs, we first store all function calls on the stack. When we exit the recursive function all calls are then fired all at once. In addition the timestamps (in milliseconds) are also collected and stored in \texttt{long[] timestamps}.
-\\
-\\
-CORRELATION OR PATTERN?? => PATTERN
-The experiment is conducted by retrieving \texttt{java.util.Random.nextFloat()} output values in as little time possible. This is done four times with array lengths: \texttt{10, 100, 1000} and \texttt{7000}. We then calculate the arithmetic mean, median, mode and standard deviation. These values can then be used to compare mean with median and to calculate probability with R's \texttt{pnorm} function. The results of these comparisons and probabilities can then be analyzed. If we can find one or more correlations in the output values this means that \texttt{java.util.Random.nextFloat()} is not random at all but instead follows those correlations.
 
-%----------------------------------------------------------------------------------------
-%	RESULTS
-%----------------------------------------------------------------------------------------
+static int device_open(struct inode *inode, struct file *file) {
+	gpio_set_value(GPIO_LED_PIN, led_status);
+	printk(KERN_ALERT "GPIO %d is set HIGH\n", GPIO_LED_PIN);
+	return 0;
+}
 
-\section{Results}
+static int device_release(struct inode *inode, struct file *file) {
+	gpio_set_value(GPIO_LED_PIN, led_status);
+	printk(KERN_ALERT "GPIO %d is set LOW\n", GPIO_LED_PIN);
+	return 0;
+}
 
-MAAK ER EEN TABEL VAN
-The following (listing~\ref{results}) is the output of the program.
-\\
-\begin{lstlisting}[language={},label=results,caption=Ouput of the program]
-Experiment [n=10]: 
-Generating java.util.Random values took 1.0 millisecond(s)
+module_init(suzanne_tim_init);
+module_exit(suzanne_tim_exit);
 
-Mean                 [1] 0.39593282938004
-Median               [1] 0.32979026436806
-Mode                 [1] 0.14058691263199
-Standard deviation                 [,1]
-[1,] 0.26815442694344
--------------------------------------------
-Mean +- median       [1] 0.06614256501198
-
-Probability n > 0                       [,1]
-[1,] 0.93009655189399
-Probability n < 1                       [,1]
-[1,] 0.98786045781739
-Probability n > median                  [,1]
-[1,] 0.59741373140378
-Probability n < median                  [,1]
-[1,] 0.40258626859622
-Probability n > mode                    [,1]
-[1,] 0.82951098505196
-Probability n < mode                    [,1]
-[1,] 0.17048901494804
-
-
-
-Experiment [n=100]: 
-Generating java.util.Random values took 1.0 millisecond(s)
-
-Mean                 [1] 0.49393919229507
-Median               [1] 0.46484676003456
-Mode                 [1] 0.10284048318863
-Standard deviation                [,1]
-[1,] 0.2714489869447
--------------------------------------------
-Mean +- median       [1] 0.02909243226051
-
-Probability n > 0                       [,1]
-[1,] 0.96559300898027
-Probability n < 1                       [,1]
-[1,] 0.96885980880285
-Probability n > median                  [,1]
-[1,] 0.54267476085866
-Probability n < median                  [,1]
-[1,] 0.45732523914134
-Probability n > mode                    [,1]
-[1,] 0.92517680512418
-Probability n < mode                    [,1]
-[1,] 0.07482319487582
-
-
-
-Experiment [n=1000]: 
-Generating java.util.Random values took 2.0 millisecond(s)
-
-Mean                 [1] 0.49332589697838
-Median               [1] 0.4915097951889
-Mode                 [1] 0.93314707279205
-Standard deviation                 [,1]
-[1,] 0.29082325410522
--------------------------------------------
-Mean +- median       [1] 0.00181610178947
-
-Probability n > 0                       [,1]
-[1,] 0.95508624436552
-Probability n < 1                       [,1]
-[1,] 0.95926382325647
-Probability n > median                  [,1]
-[1,] 0.50249125566892
-Probability n < median                  [,1]
-[1,] 0.49750874433108
-Probability n > mode                    [,1]
-[1,] 0.06522477234239
-Probability n < mode                    [,1]
-[1,] 0.93477522765761
-
-
-
-Experiment [n=7000]: 
-new double array length = 7000
-new double array length = 7000
-Generating java.util.Random values took 1.0 millisecond(s)
-new double array length = 7000
-building DoubleVector = 7000
-IntArrayVector alloc = 7000
-
-Mean                 [1] 0.50724935386862
-Median               [1] 0.50939035415649
-Mode                 [1] 0.31117027997971
-Standard deviation                [,1]
-[1,] 0.2861182375764
--------------------------------------------
-Mean +- median       [1] -0.00214100028787
-
-Probability n > 0                       [,1]
-[1,] 0.96187456005885
-Probability n < 1                       [,1]
-[1,] 0.95748266186443
-Probability n > median                  [,1]
-[1,] 0.49701477412488
-Probability n < median                  [,1]
-[1,] 0.50298522587512
-Probability n > mode                    [,1]
-[1,] 0.75342515998576
-Probability n < mode                    [,1]
-[1,] 0.24657484001424
 \end{lstlisting}
 
-\begin{table}[]
-\centering
-\caption{Results of Computations}
-\label{my-label}
-\begin{tabular}{lllll}
- &  &  &  &  \\
- &  &  &  &  \\
- &  &  &  &  \\
- &  &  &  & 
-\end{tabular}
-\end{table}
+And finally to test the driver:
 
-We want to find one or more correlation in the output above, thus proving that \texttt{java.util.Random.nextFloat()} follows a pattern. If we can prove that a pattern is being followed, our hypotheses is wrong.
-\\
-\\
-In all executions of the program (\texttt{n=10, n=100, n=1000} and \texttt{n=7000}) the mean lies very close to the median. This indicates that the differences between each \texttt{n} and \texttt{n+1} are more or less the same for the whole range (0-1). In other words, it indicates that we have little to no outliers in our results.
-\\
-\\
-If we compare the probabilities of each experiment (\texttt{n=10, n=100, n=1000} and \texttt{n=7000}), we also see that results are generally very close to each other. The probability of an entry \texttt{n > 0} means: what is the chance that this entry is bigger than \texttt{0}? And so we can see that all our data sets are evenly distributed, because \texttt{$n <> median \approx 0.5$} and our modes are never close to \texttt{0.5}.
+\begin{lstlisting}
 
-%----------------------------------------------------------------------------------------
-%	DISCUSSION
-%----------------------------------------------------------------------------------------
+#include "suzanne_tim.h"
+#include <unistd.h>
 
-\section{Discussion}
+int main (int argc, char **argv) {
 
-The researcher states some facts about JVM runtime environment, but this research never clears if those facts indeed change the measurement results.
-\\
-\\
-Stack memory is limited and is therefore a bottleneck in how many recursive function calls can be stored on it. In the case of this study only 7000 output values with their corresponding timestamps could be retrieved without triggering a \texttt{stack overflow exception}. We do not know how many output values are actually needed for a trustworthy result. More is better is the norm here.
-\\
-\\
-The researcher believes timestamps can have an impact on the outputs of\\ \texttt{java.util.Random.nextFloat()}, while never proving it. This could be inspected by looking at the actual source code of \texttt{java.util.Random} and determining if the source code is in any way associated with time and/or timestamps.
+    while (1) {
+        LED_aan();
+        usleep(1000000);
+        LED_uit();
+        usleep(1000000);
+    }
 
-%----------------------------------------------------------------------------------------
-%	CONCLUSION
-%----------------------------------------------------------------------------------------
+    return 0;
+}
 
-\section{Conclusion}
+\end{lstlisting}
 
-GIVEN THE THINGS MENTIONED IN DISCUSSION, WE CAN ASSUME THAT...
-Q.E.D. Because we see a clear correlation between our data sets in that they are all evenly distributed we can conclude that this is a pattern that outputs of \\\texttt{java.util.Random.nextFloat()} follow, thus proving that \texttt{java.util.Random.nextFloat()} \textbf{does} follow a clear pattern.
+When all this is done the driver needs to be compiled as 'kernel module'.
+
+\begin{lstlisting}
+
+make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+
+\end{lstlisting}
+
+This yields a .ko file. This is a 'kernel object', which can be loaded into the kernel by the command line actions:
+
+\begin{lstlisting}
+
+sudo insmod suzanne_tim.ko
+sudo mknod -m /dev/KernelModuleRPI c 666 0
+
+\end{lstlisting}
+
+And we are done!
 
 \end{document}
